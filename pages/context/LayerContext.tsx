@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import { v4 as uuidv4 } from "uuid";
 
-type CanvasLayer = {
+export type CanvasLayer = {
   id: string;
   ref: React.RefObject<HTMLCanvasElement>;
   top: number;
@@ -117,6 +117,38 @@ export const LayerProvider: React.FC<LayerProviderProps> = ({ children }) => {
       );
     }
   };
+
+  // Add this useEffect to add the global mouseup listener
+  useEffect(() => {
+    const globalMouseUpListener = () => {
+      layers.forEach((layer) => {
+        if (layer.mouseDown) {
+          dragEnd(layer.id);
+        }
+      });
+    };
+
+    window.addEventListener("mouseup", globalMouseUpListener);
+    return () => {
+      window.removeEventListener("mouseup", globalMouseUpListener);
+    };
+  }, [layers, dragEnd]);
+
+  // Add this useEffect to add the global mouseup listener
+  useEffect(() => {
+    const globalMouseUpListener = () => {
+      layers.forEach((layer) => {
+        if (layer.mouseDown) {
+          dragEnd(layer.id);
+        }
+      });
+    };
+
+    window.addEventListener("mouseup", globalMouseUpListener);
+    return () => {
+      window.removeEventListener("mouseup", globalMouseUpListener);
+    };
+  }, [layers, dragEnd]);
 
   return (
     <LayerContext.Provider

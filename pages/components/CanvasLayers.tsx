@@ -4,6 +4,8 @@ import {
   useCanvasInitialization,
   useCanvasLayersUpdate,
 } from "../context/LayerContext";
+import CanvasLayer from "./CanvasLayer";
+import useDragLayer from "../hooks/useDragLayer";
 
 const CanvasLayers: React.FC = () => {
   const { layers, addLayer, dragStart, dragMove, dragEnd } = useCanvasLayer();
@@ -13,44 +15,8 @@ const CanvasLayers: React.FC = () => {
   useCanvasInitialization(mainCanvasRef, "#ffffff");
   useCanvasLayersUpdate(layers);
 
-  // Add this useEffect to add the global mouseup listener
-  useEffect(() => {
-    const globalMouseUpListener = () => {
-      layers.forEach((layer) => {
-        if (layer.mouseDown) {
-          dragEnd(layer.id);
-        }
-      });
-    };
-
-    window.addEventListener("mouseup", globalMouseUpListener);
-    return () => {
-      window.removeEventListener("mouseup", globalMouseUpListener);
-    };
-  }, [layers, dragEnd]);
-
-  const handleMouseDown = (id: string) => {
-    dragStart(id);
-  };
-
-  const handleMouseUp = (id: string) => {
-    dragEnd(id);
-  };
-
-  const handleMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
-    const { clientX, clientY } = event;
-    if (!mainCanvasRef.current) return null;
-    const { left, top } = mainCanvasRef.current.getBoundingClientRect();
-    const x = clientX - left;
-    const y = clientY - top;
-    mousePositionRef.current = { x, y };
-
-    layers.forEach((layer) => {
-      if (layer.mouseDown) {
-        dragMove(layer.id, x, y);
-      }
-    });
-  };
+  const { handleMouseDown, handleMouseUp, handleMouseMove } =
+    useDragLayer(mainCanvasRef); // use the hook here
 
   return (
     <div>
@@ -69,18 +35,11 @@ const CanvasLayers: React.FC = () => {
           height={600}
         />
         {layers.map((layer) => (
-          <canvas
+          <CanvasLayer
             key={layer.id}
-            ref={layer.ref}
-            style={{
-              position: "absolute",
-              top: layer.top,
-              left: layer.left,
-            }}
-            width={100}
-            height={100}
-            onMouseDown={() => handleMouseDown(layer.id)}
-            onMouseUp={() => handleMouseUp(layer.id)}
+            layer={layer}
+            handleMouseDown={handleMouseDown}
+            handleMouseUp={handleMouseUp}
           />
         ))}
       </div>
