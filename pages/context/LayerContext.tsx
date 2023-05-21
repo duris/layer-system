@@ -6,12 +6,15 @@ import React, {
   useContext,
 } from "react";
 import { v4 as uuidv4 } from "uuid";
+import { ResizeHandle } from "../hooks/useResizableLayer";
 
 export type CanvasLayer = {
   id: string;
   ref: React.RefObject<HTMLCanvasElement>;
   top: number;
   left: number;
+  width: number;
+  height: number;
   color: string;
   mouseDown: boolean;
 };
@@ -20,9 +23,10 @@ type LayerContextType = {
   layers: CanvasLayer[];
   addLayer: () => void;
   deleteLayer: (id: string) => void;
-  dragStart: (id: string) => void; // Add this line
-  dragMove: (id: string, x: number, y: number) => void; // Add this line
-  dragEnd: (id: string) => void; // Add this line
+  dragStart: (id: string) => void;
+  dragMove: (id: string, x: number, y: number) => void;
+  dragEnd: (id: string) => void;
+  resizeLayer: (id: string, handle: ResizeHandle, x: number, y: number) => void;
 };
 
 type LayerProviderProps = {
@@ -30,6 +34,19 @@ type LayerProviderProps = {
 };
 
 const LayerContext = createContext<LayerContextType | undefined>(undefined);
+
+export const getRandomColor = () => {
+  const letters = "0123456789ABCDEF";
+  let color = "#";
+  for (let i = 0; i < 6; i++) {
+    color += letters[Math.floor(Math.random() * 16)];
+  }
+  return color;
+};
+
+export const getRandomNumber = (min: number, max: number) => {
+  return Math.random() * (max - min) + min;
+};
 
 export function useCanvasInitialization(
   canvasRef: React.RefObject<HTMLCanvasElement>,
@@ -40,7 +57,7 @@ export function useCanvasInitialization(
     if (canvas !== null) {
       const ctx = canvas.getContext("2d");
       if (ctx) {
-        ctx.fillStyle = color; // set the main canvas background color
+        ctx.fillStyle = color;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
       }
     }
@@ -67,15 +84,17 @@ export const LayerProvider: React.FC<LayerProviderProps> = ({ children }) => {
   const [draggedLayer, setDraggedLayer] = React.useState<string | null>(null);
 
   const addLayer = () => {
-    const top = Math.random() * 600;
-    const left = Math.random() * 1000;
-    const color = `#${Math.floor(Math.random() * 16777215).toString(16)}`; // Random color
+    const top = getRandomNumber(0, 600);
+    const left = getRandomNumber(0, 1000);
+    const color = getRandomColor();
 
     const newLayer: CanvasLayer = {
       id: uuidv4(),
       ref: React.createRef<HTMLCanvasElement>(),
       top,
       left,
+      width: 100, // Default width
+      height: 100, // Default height
       color,
       mouseDown: false,
     };
@@ -87,7 +106,6 @@ export const LayerProvider: React.FC<LayerProviderProps> = ({ children }) => {
     setLayers((layers) => layers.filter((layer) => layer.id !== id));
   };
 
-  // Add these functions
   const dragStart = (id: string) => {
     setDraggedLayer(id);
     setLayers((layers) =>
@@ -118,7 +136,6 @@ export const LayerProvider: React.FC<LayerProviderProps> = ({ children }) => {
     }
   };
 
-  // Add this useEffect to add the global mouseup listener
   useEffect(() => {
     const globalMouseUpListener = () => {
       layers.forEach((layer) => {
@@ -134,25 +151,64 @@ export const LayerProvider: React.FC<LayerProviderProps> = ({ children }) => {
     };
   }, [layers, dragEnd]);
 
-  // Add this useEffect to add the global mouseup listener
-  useEffect(() => {
-    const globalMouseUpListener = () => {
-      layers.forEach((layer) => {
-        if (layer.mouseDown) {
-          dragEnd(layer.id);
-        }
-      });
-    };
+  const resizeLayer = (
+    id: string,
+    handle: ResizeHandle,
+    x: number,
+    y: number
+  ) => {
+    setLayers((layers) =>
+      layers.map((layer) => {
+        if (layer.id !== id) return layer;
 
-    window.addEventListener("mouseup", globalMouseUpListener);
-    return () => {
-      window.removeEventListener("mouseup", globalMouseUpListener);
-    };
-  }, [layers, dragEnd]);
+        switch (handle) {
+          case "topLeft":
+            return {
+              ...layer,
+              left: x,
+              top: y,
+              width: layer.width + (layer.left - x),
+              height: layer.height - (layer.top - y),
+            };
+          case "topRight":
+            return {
+              ...layer,
+              top: y,
+              width: x - layer.left,
+              height: layer.height - (layer.top - y),
+            };
+          case "bottomLeft":
+            return {
+              ...layer,
+              left: x,
+              width: layer.width + (layer.left - x),
+              height: y - layer.top,
+            };
+          case "bottomRight":
+            console.log("bottom right moving");
+            return {
+              ...layer,
+              width: x - layer.left,
+              height: y - layer.top,
+            };
+          default:
+            return layer;
+        }
+      })
+    );
+  };
 
   return (
     <LayerContext.Provider
-      value={{ layers, addLayer, deleteLayer, dragStart, dragMove, dragEnd }}
+      value={{
+        layers,
+        addLayer,
+        deleteLayer,
+        dragStart,
+        dragMove,
+        dragEnd,
+        resizeLayer,
+      }}
     >
       {children}
     </LayerContext.Provider>
